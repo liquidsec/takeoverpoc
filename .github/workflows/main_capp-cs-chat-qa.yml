@@ -1,8 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
-# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
 
-name: Build and deploy Python app to Azure Web App - capp-cs-chat-qa
+name: Build and deploy ASP app to Azure Web App - capp-cs-chat-qa
 
 on:
   push:
@@ -12,39 +11,31 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python version
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      - name: Setup MSBuild path
+        uses: microsoft/setup-msbuild@v1.0.2
 
-      - name: Create and start virtual environment
-        run: |
-          python -m venv venv
-          source venv/bin/activate
-      
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-        
-      # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v1.0.5
 
-      - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
+      - name: Restore NuGet packages
+        run: nuget restore
 
-      - name: Upload artifact for deployment jobs
+      - name: Publish to folder
+        run: msbuild /nologo /verbosity:m /t:Build /t:pipelinePreDeployCopyAllFilesToOneFolder /p:_PackageTempDir="\published\"
+
+      - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
-          name: python-app
-          path: |
-            release.zip
-            !venv/
+          name: ASP-app
+          path: '/published/**'
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: build
     environment:
       name: 'Production'
@@ -56,23 +47,20 @@ jobs:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: python-app
-
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
-
+          name: ASP-app
       
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_B003A2DB5660446EBBA69A3881C4E062 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_698193543870455896CB922711A39549 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_6D740E87F108439DA549028CB5C00F09 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_20D11BEC582147B3A3BE3DCE84BD7360 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_8197CA811C1D4D988243B499E3C56052 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_7F600F6F05374C22B9DB45E66328E28A }}
 
-      - name: 'Deploy to Azure Web App'
-        uses: azure/webapps-deploy@v3
+      - name: Deploy to Azure Web App
         id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
         with:
           app-name: 'capp-cs-chat-qa'
           slot-name: 'Production'
+          package: .
           
